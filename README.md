@@ -31,7 +31,7 @@ The following code creates a client reading the config from ./config.json and se
   * thingWrite Writes one or more elements to the resource
 
 ```js
-var theThingsCoAP = require('thethingsio-api');
+var theThingsCoAP = require('thethingsio-coap');
 
 var KEY = 'distance';
 
