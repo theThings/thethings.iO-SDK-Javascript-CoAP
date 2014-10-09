@@ -14,7 +14,6 @@ npm install thethingsio-coap
 You can put your credentials in a file called config.json with this format:
 
 ```js
-
 {
     "USER_TOKEN" : "your user token",
     "THING_TOKEN" : "your thing token"
