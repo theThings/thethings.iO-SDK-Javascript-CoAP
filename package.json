@@ -1,0 +1,30 @@
+{
+    "name": "thethingsio-coap",
+    "description": "CoAP library for coap.theThings.IO endpoint",
+    "version": "0.0.1",
+    "private": false,
+    "author": "TheThingsIO <hello@thethings.io",
+    "keywords":[
+        "coap",
+        "client",
+        "theThings",
+        "theThings.IO",
+        "internet of things",
+        "IoT"
+    ],
+    "license": "MIT",
+    "contributors": [
+        {
+            "name": "Martí Zamora Casals",
+            "email": "marti@thethings.io"
+        }
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/theThings/thethingsio-coap-node.git"
+    },
+    "readmeFilename": "README.md",
+    "dependencies": {
+        "coap": "0.8.0"
+    }
+}

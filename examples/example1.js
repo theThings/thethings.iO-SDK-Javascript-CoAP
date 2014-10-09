@@ -1,39 +1,6 @@
-#theThings.IO node API lib
-This lib allows to connect to the coap.theThings.IO endpoint.
+var theThingsCoAP = require('../');
 
-Please visit the [documentation page](https://developers.thethings.io) page at [theThings.IO](https://thethings.io)
-
-
-#Install
-```
-npm install thethingsio-coap
-```
-
-##Getting started
-
-You can put your credentials in a file called config.json with this format:
-
-```js
-
-{
-    "USER_TOKEN" : "your user token",
-    "THING_TOKEN" : "your thing token"
-}
-```
-
-The following code creates a client reading the config from ./config.json and sends 3 requests to the theThings.IO
- CoAP endpoint. There are 3 possible requests
-
-  * thingReadLatest Reads the last element written to the resource/thing.
-
-  * thingRead Reads all the elements written to the resource in the last 30 days.
-
-  * thingWrite Writes one or more elements to the resource
-
-```js
-var theThingsCoAP = require('thethingsio-api');
-
-var KEY = 'distance';
+var KEY = 'light';
 
 //create Client
 var client = theThingsCoAP.createClient();
@@ -61,7 +28,7 @@ var object = {
             {
                 "key": KEY,
                 "value": "100",
-                "units": "m",
+                "units": "lumens",
                 "type": "temporal",
                 "datetime" : "20141007080000"
             }
@@ -73,4 +40,3 @@ req3.on('response',function(res){
     console.log('Write\n',res.statusCode,res.payload.toString() ,'\n\n');
 });
 req3.end();
-```
