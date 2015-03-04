@@ -1,78 +1,187 @@
 const HOSTNAME = 'coap.thethings.io'
-    , API_VERSION = '0.1'
+    , API_VERSION = 'v2'
     , coap = require('coap')
     , events = require('events')
     , util = require('util')
 
-
-var stringToBuffer = function (string) {
-    return new Buffer(string, 'ascii');
+function parametersToQuery(parameters) {
+    var query = ''
+    for (var param in parameters) {
+        query += param + '=' + parameters[param] + '&'
+    }
+    return query.substring(0, query.length - 1)
 }
-
-var bufferToString = function (buffer) {
-    return buffer.toString();
-}
-
-coap.registerOption('1215', stringToBuffer, bufferToString);
-
 
 var Client = module.exports = function Client(config) {
-    if (!(this instanceof Client)) {
-        return new Client(config);
-    }
-    this.config = config;
+        if (!(this instanceof Client)) {
+            return new Client(config)
+        }
+        events.EventEmitter.call(this)
+        this.thingToken = config.thingToken
+        this.activationCode = config.activationCode
+        var that = this
+        if (!this.thingToken && this.activationCode) {
+            var activationRequest = this.activateThing(this.activationCode)
+            activationRequest.on('data', function (data) {
+                if (data.status === 'error') {
+                    that.emit('error', 'error activating thing')
+                } else if (data.status === 'created') {
+                    that.emit('activated', data)
+                    that.thingToken = data.thingToken
+                    that.emit('ready')
+                } else {
+                    that.emit('error', 'unknown activation response')
+                }
+            })
+            activationRequest.end()
+        }
+        if (this.thingToken) {
+            setImmediate(function () {//maybe a process.nextTick would be better
+                that.emit('ready')
+            })
+        }
 }
 
-function Req(request, object) {
-    events.EventEmitter.call(this);
-    this.request = request;
-    var that = this;
-    this.object = object;
+function Req(request, object, callback) {
+    if (callback === undefined && typeof object === 'function') {
+        callback = object
+    }
+    var that = this
+    events.EventEmitter.call(this)
+    this.request = request
+    this.object = object
+    this.timeout = null
+
+    this._restartTimeout = function (time) {
+        if (that.timeout) {
+            clearTimeout(this.timeout)
+        }
+        that.timeout = setTimeout(function () {
+            that.emit('disconected')
+        }, time + 1000)
+        return that.timeout
+    }
+
+    if (request.keepAlive) {
+        that._restartTimeout(request.keepAlive)
+    }
     request.on('response', function (res) {
-        that.emit('response', res);
+        res.on('data', function (chunk) {
+            if (request.keepAlive) {
+                that._restartTimeout(request.keepAlive)
+                if (chunk.toString() === '{}') {
+                    that.emit('keepAlive')
+                    return
+                }
+                chunk = JSON.parse(chunk)
+                if (chunk.status === 'success' && chunk.message === 'subscribed') {
+                    that.emit('subscribed')
+                    return
+                } else if (chunk.status === 'error') {
+                    if (callback !== undefined) {
+                        return callback(chunk.message)
+                    } else {
+                        that.emit('error', chunk.message)
+                    }
+                }
+            } else {
+                chunk = JSON.parse(chunk)
+            }
+            that.emit('data', chunk)
+            if (callback !== undefined) {
+                callback(null, chunk)
+            }
+        })
     })
+
+    request.on('error', function (error) {
+        if (callback === undefined) {
+            that.emit('error', error)
+        } else {
+            callback(error)
+        }
+    })
+
     this.end = function () {
-        request.end(JSON.stringify(this.object));
+        request.end(JSON.stringify(this.object))
     }
+    if (callback !== undefined) {
+        this.end()
+    }
+
+
 }
 
-util.inherits(Req, events.EventEmitter);
 
-Client.prototype.thingRead = function (key,parameters) {
-    var params = "";
-    for(param in parameters){
-      params += param+"="+parameters[param]+'&';
+util.inherits(Req, events.EventEmitter)
+util.inherits(Client, events.EventEmitter)
+
+
+Client.prototype.activateThing = function (activatonCode, callback) {
+    var request = coap.request({
+        hostname: HOSTNAME,
+        pathname: '/' + API_VERSION + '/things',
+        method: 'POST'
+    })
+    var req = new Req(request, {activationCode: activatonCode}, callback)
+    return req
+}
+
+Client.prototype.thingRead = function (key, parameters, callback) {
+    if (typeof parameters === 'function') {
+        callback = parameters
+    }
+    if (typeof parameters !== 'object') {
+        parameters = {}
     }
     var request = coap.request({
         hostname: HOSTNAME,
-        pathname: API_VERSION + '/ThingRead/' + this.config.THING_TOKEN + '/' + key+'?'+params,
-        options: {'1215': this.config.USER_TOKEN}});
-    var req = new Req(request);
-    return req;
+        pathname: '/' + API_VERSION + '/things/' + this.thingToken + '/resources/' + key + '?' + parametersToQuery(parameters)
+    })
+    var req = new Req(request, callback)
+    return req
 }
 
-Client.prototype.thingReadLatest = function (key,parameters) {
-//Read the last item stored by the thing
-    var req = coap.request({
-        hostname: HOSTNAME,
-        pathname: API_VERSION + '/ThingReadLatest/' + this.config.THING_TOKEN + '/' + key,
-        options: {'1215': this.config.USER_TOKEN}
-    });
-    return new Req(req);
-}
-
-Client.prototype.thingWrite = function (object,parameters) {
+Client.prototype.thingWrite = function (object, parameters, callback) {
+    if (typeof parameters === 'function') {
+        callback = parameters
+    }
+    if (typeof parameters !== 'object') {
+        parameters = {}
+    }
     var request = coap.request({
-        hostname: HOSTNAME,
-        pathname: API_VERSION + '/ThingWrite',
-        method: 'POST',
-        options: {'1215': this.config.USER_TOKEN}});
+            hostname: HOSTNAME,
+            pathname: '/' + API_VERSION + '/things/' + this.thingToken + '?' + parametersToQuery(parameters),
+            method: 'POST'
+        }
+    )
+
     if (object === null || object === undefined) {
-        throw 'Object to write not defined';
+        throw 'Object to write not defined'
     }
-    object.thing = {
-        id: this.config.THING_TOKEN
+
+    var req = new Req(request, object, callback)
+    return req
+}
+
+Client.prototype.thingSubscribe = function (parameters, callback) {
+    if (typeof parameters === 'function') {
+        callback = parameters
     }
-    var req = new Req(request,object);
-    return req;
+    if (typeof parameters !== 'object') {
+        parameters = {}
+    }
+    if (!parameters.keepAlive) {
+        parameters.keepAlive = 60000//one min
+    }
+    var request = coap.request({
+            hostname: HOSTNAME,
+            pathname: '/' + API_VERSION + '/things/' + this.thingToken + '?' + parametersToQuery(parameters),
+            observe: true
+        }
+    )
+    request.keepAlive = parameters.keepAlive
+
+    var req = new Req(request, callback)
+    return req
 }

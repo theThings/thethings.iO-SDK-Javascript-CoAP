@@ -1,14 +1,14 @@
 {
     "name": "thethingsio-coap",
-    "description": "CoAP library for coap.theThings.IO endpoint",
-    "version": "0.0.1",
+    "description": "CoAP library for coap.thethings.io endpoint",
+    "version": "0.1.0",
     "private": false,
-    "author": "TheThingsIO <hello@thethings.io",
+    "author": "thethingsiO <hello@thethings.io",
     "keywords":[
         "coap",
         "client",
         "theThings",
-        "theThings.IO",
+        "thethings.iO",
         "internet of things",
         "IoT"
     ],
